@@ -115,10 +115,57 @@ function getFilenamesInDirectory(directoryPath) {
     }
   }
 // Root endpoint
+// Endpoint to get tracks from the database
 app.get('/tracks', (req, res) => {
-    let directoryPath = "audio"
-    const filenames = getFilenamesInDirectory(directoryPath);
-    res.status(200).send(filenames)
+  const sql = `
+      SELECT path, title, artist, insert_dt, release_dt, update_dt 
+      FROM resources
+      ORDER BY title DESC
+  `;
+
+  db.query(sql, (err, results) => {
+      if (err) {
+          console.error('Error fetching tracks:', err);
+          return res.status(500).json({ error: 'Failed to fetch tracks.' });
+      }
+
+      if (results.length === 0) {
+          return res.status(404).json({ message: 'No tracks found.' });
+      }
+
+      res.status(200).json({ tracks: results });
+  });
+});
+
+// Fetch tracks for a given user
+app.get('/collections/:userId', (req, res) => {
+  const { userId } = req.params;
+
+  // Validate the user ID
+  if (!userId) {
+      return res.status(400).json({ message: 'User ID is required.' });
+  }
+
+  // Query to fetch tracks for the user
+  const query = `
+      SELECT title, artist, insert_dt, name
+      FROM collections
+      WHERE user_id = ?
+      ORDER BY name, insert_dt DESC
+  `;
+
+  db.query(query, [userId], (err, results) => {
+      if (err) {
+          console.error('Error executing query:', err.stack);
+          return res.status(500).json({ message: 'Internal server error.' });
+      }
+
+      // Respond with the tracks
+      res.json({
+          message: 'Tracks fetched successfully.',
+          tracks: results
+      });
+  });
 });
 
 // New endpoint that spawns the Python process
@@ -205,6 +252,34 @@ app.post('/create-user', (req, res) => {
               id: results.insertId,
               username
           }
+      });
+  });
+});
+
+// Endpoint to add a song to a collection
+app.post('/collections/add', (req, res) => {
+  const { user_id, title, artist, name } = req.body;
+  // Validate input
+  if (!user_id || !title || !artist || !name) {
+      return res.status(400).json({ error: 'All fields (user_id, title, artist, name) are required.' });
+  }
+
+  const insert_dt = new Date().toISOString().slice(0, 19).replace('T', ' '); // Format for MySQL DATETIME
+
+  const sql = `
+      INSERT INTO collections (user_id, title, artist, insert_dt, name)
+      VALUES (?, ?, ?, ?, ?)
+  `;
+
+  db.query(sql, [user_id, title, artist, insert_dt, name], (err, result) => {
+      if (err) {
+          console.error('Error inserting song into collection:', err);
+          return res.status(500).json({ error: 'Failed to add the song to the collection.' });
+      }
+
+      res.status(201).json({
+          message: 'Song added to the collection successfully.',
+          song: { user_id, title, artist, name, insert_dt },
       });
   });
 });
