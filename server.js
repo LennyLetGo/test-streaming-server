@@ -5,6 +5,7 @@ const fs = require('fs');
 const ffmpeg = require('fluent-ffmpeg');
 const { spawn } = require('child_process'); // Required to spawn a Python process
 const bodyParser = require('body-parser');
+const mysql = require('mysql2');
 const app = express();
 const PORT = 5000;
 
@@ -12,8 +13,25 @@ const PORT = 5000;
 app.use(cors());
 app.use(bodyParser.json());
 
+// Configure MySQL connection
+const db = mysql.createConnection({
+  host: 'localhost',
+  user: 'root',
+  password: 'password', // Replace with your MySQL root password
+  database: 'test-streaming'
+});
+
+// Connect to the database
+db.connect(err => {
+  if (err) {
+      console.error('Database connection failed:', err.stack);
+      return;
+  }
+  console.log('Connected to MySQL database.');
+});
+
 // Directory for HLS output
-const HLS_BASE_DIR = path.join(__dirname, 'public/audio');
+const HLS_BASE_DIR = path.join(__dirname, 'stream');
 
 // Ensure the base directory exists
 if (!fs.existsSync(HLS_BASE_DIR)) {
@@ -22,9 +40,12 @@ if (!fs.existsSync(HLS_BASE_DIR)) {
 
 // Function to convert a file to HLS segments
 function convertToHLS(inputFile, outputDir) {
+  console.log(inputFile.replace(".wav", "").replace("audio\\", ""))
+  let fileBase = inputFile.replace(".wav", "").replace("audio\\", "")
+  console.log(`Attempting to convert file ${fileBase}`)
   return new Promise((resolve, reject) => {
-    const outputFile = path.join(outputDir, 'playlist.m3u8');
-    const segmentPattern = path.join(outputDir, 'segment%d.ts');
+    const outputFile = path.join(outputDir, `${fileBase}-playlist.m3u8`);
+    const segmentPattern = path.join(outputDir, `${fileBase}-segment%d.ts`);
 
     ffmpeg(inputFile)
       .outputOptions([
@@ -52,22 +73,22 @@ function convertToHLS(inputFile, outputDir) {
 app.get('/audio/:fileId', async (req, res) => {
   const { fileId } = req.params;
   const inputFile = path.join("audio", `${fileId}.wav`);  // Dynamically resolve the MP3 file
-  const outputDir = path.join(HLS_BASE_DIR, fileId);
-
-  // Ensure a unique directory for each stream
-  if (!fs.existsSync(outputDir)) {
-    fs.mkdirSync(outputDir, { recursive: true });
-
+  const outputDir = HLS_BASE_DIR
+  const converted = path.join("stream", `${fileId}`);  // Dynamically resolve the MP3 file
+  if (!fs.existsSync(converted)) {
     try {
       console.log(`Converting ${fileId} to HLS...`);
       await convertToHLS(inputFile, outputDir);
     } catch (err) {
       return res.status(500).send('Error during HLS conversion');
     }
+    // Serve the playlist.m3u8 file
+    res.sendFile(path.join(outputDir, `${fileId}-playlist.m3u8`));
   }
-
-  // Serve the playlist.m3u8 file
-  res.sendFile(path.join(outputDir, 'playlist.m3u8'));
+  else {
+    // Serve the playlist.m3u8 file
+    res.sendFile(path.join(outputDir, `${fileId}`));
+  }
 });
 
 // Serve HLS segments
@@ -121,6 +142,70 @@ app.post('/process-url', (req, res) => {
     } else {
       res.status(500).send({ error: `Python script exited with code ${code}` });
     }
+  });
+});
+
+// Login endpoint
+app.post('/login', (req, res) => {
+  const { username, password } = req.body;
+
+  // Validate request body
+  if (!username || !password) {
+      return res.status(400).json({ message: 'Username and password are required.' });
+  }
+
+  // Query the database for the user
+  const query = 'SELECT * FROM users WHERE username = ? AND password = ?';
+  db.query(query, [username, password], (err, results) => {
+      if (err) {
+          console.error('Error executing query:', err.stack);
+          return res.status(500).json({ message: 'Internal server error.' });
+      }
+
+      if (results.length > 0) {
+          // User found
+          res.json({
+              message: 'Login successful',
+              user: {
+                  id: results[0].id,
+                  username: results[0].username
+              }
+          });
+      } else {
+          // User not found
+          res.status(401).json({ message: 'Invalid username or password.' });
+      }
+  });
+});
+// Create user endpoint
+app.post('/create-user', (req, res) => {
+  const { username, password } = req.body;
+
+  // Validate request body
+  if (!username || !password) {
+      return res.status(400).json({ message: 'Username and password are required.' });
+  }
+
+  // Insert the user into the database
+  const query = 'INSERT INTO users (username, password) VALUES (?, ?)';
+  db.query(query, [username, password], (err, results) => {
+      if (err) {
+          if (err.code === 'ER_DUP_ENTRY') {
+              // Handle duplicate username error
+              return res.status(409).json({ message: 'Username already exists.' });
+          }
+          console.error('Error executing query:', err.stack);
+          return res.status(500).json({ message: 'Internal server error.' });
+      }
+
+      // Respond with the newly created user ID
+      res.status(201).json({
+          message: 'User created successfully.',
+          user: {
+              id: results.insertId,
+              username
+          }
+      });
   });
 });
 

@@ -2,6 +2,7 @@ import sys
 import yt_dlp
 import mysql.connector
 from mysql.connector import Error
+import datetime
 
 def connect_to_database() -> mysql.connector.connection.MySQLConnection:
     try:
@@ -50,13 +51,14 @@ def test(info):
             results = cursor.fetchall()
             if len(results) == 0:
                 # Upload data
-                cursor.execute(f"INSERT INTO streaming_test.resources VALUES ('{artist}', '{title}', '{resource_path}')")
+                cursor.execute(f"INSERT INTO streaming_test.resources (artist, title, path, release_dt, insert_dt, update_dt) VALUES ('{artist}', '{title}', '{resource_path}', '{datetime.datetime.now()}', '{datetime.datetime.now()}', '{datetime.datetime.now()}')")
                 conn.commit()          
             else:
                 print("RESOURCE EXISTS")
                 print(results)
             cursor.close()
             conn.close()
+            pass
 
         
 
@@ -94,6 +96,7 @@ if __name__ == '__main__':
     # Get the URL from command-line arguments
     video_url = [sys.argv[1]]
     ydl_opts = {
+        'cookiefile': 'www.youtube.com.txt',  # Path to your cookies.txt
         'format': 'wav/bestaudio/best',
         'outtmpl': '%(artist)s-%(title)s.%(ext)s'.replace(' ', '_'),  # Output template for artist - title
         # ℹ️ See help(yt_dlp.postprocessor) for a list of available Postprocessors and their arguments

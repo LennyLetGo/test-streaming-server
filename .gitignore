@@ -2,3 +2,5 @@
 .venv
 audio
 public
+stream
+www.*
