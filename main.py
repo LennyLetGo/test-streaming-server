@@ -41,8 +41,10 @@ def test(info):
             artists = info['info_dict']['artists']
             art = ''
             for index, artist in enumerate(artists):
-                if index < len(artists)-1:
+                if index == 0:
                     art = f'{art}{artist},'
+                elif index < len(artists)-1:
+                    art = f'{art} {artist},'
                 else:
                     if len(artists) > 1:
                         art = f'{art} {artist}'
@@ -107,7 +109,7 @@ if __name__ == '__main__':
 
     # Get the URL from command-line arguments
     video_url = [sys.argv[1]]
-    # video_url = "https://www.youtube.com/watch?v=_umbBA6opV8"
+    # video_url = "https://www.youtube.com/watch?v=U3jQ91rMkrU"
     ydl_opts = {
         'cookiefile': 'www.youtube.com.txt',  # Path to your cookies.txt
         'format': 'wav/bestaudio/best',

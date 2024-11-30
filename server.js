@@ -8,9 +8,20 @@ const bodyParser = require('body-parser');
 const mysql = require('mysql2');
 const app = express();
 const PORT = 5000;
+const LOCAL_IP = '192.168.5.217'
 
-// Enable CORS and body-parser for JSON request bodies
-app.use(cors());
+// Allow requests from your frontend's local IP
+const allowedOrigins = ['http://localhost:3000', 'http://192.168.5.217:3000']; // Replace with your actual IP and port
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  }
+}));
 app.use(bodyParser.json());
 
 // Configure MySQL connection
@@ -285,6 +296,6 @@ app.post('/collections/add', (req, res) => {
 });
 
 // Start the server
-app.listen(PORT, () => {
-  console.log(`Server is running at http://localhost:${PORT}`);
+app.listen(PORT, LOCAL_IP, () => {
+  console.log(`Server is running at http://${LOCAL_IP}:${PORT}`);
 });
