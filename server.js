@@ -11,7 +11,7 @@ const PORT = 5000;
 const LOCAL_IP = '192.168.5.217'
 
 // Allow requests from your frontend's local IP
-const allowedOrigins = ['http://localhost:3000', 'http://192.168.5.217:3000']; // Replace with your actual IP and port
+const allowedOrigins = ['http://localhost:3000', 'http://192.168.5.217:3000'] //'0.0.0.0']; // Replace with your actual IP and port
 
 app.use(cors({
   origin: function (origin, callback) {
@@ -79,13 +79,17 @@ function convertToHLS(inputFile, outputDir) {
       .run();
   });
 }
+// Serve HLS segments
+app.use('/audio', express.static(HLS_BASE_DIR));
 
 // Route to handle audio streaming by file ID
 app.get('/audio/:fileId', async (req, res) => {
+  console.log('audio/fileID HIT')
   const { fileId } = req.params;
   const inputFile = path.join("audio", `${fileId}.wav`);  // Dynamically resolve the MP3 file
   const outputDir = HLS_BASE_DIR
-  const converted = path.join("stream", `${fileId}`);  // Dynamically resolve the MP3 file
+  const converted = path.join("stream", `${fileId}-playlist.m3u8`);  // Dynamically resolve the MP3 file
+  console.log(`converted: ${converted}`)
   if (!fs.existsSync(converted)) {
     try {
       console.log(`Converting ${fileId} to HLS...`);
@@ -98,12 +102,10 @@ app.get('/audio/:fileId', async (req, res) => {
   }
   else {
     // Serve the playlist.m3u8 file
-    res.sendFile(path.join(outputDir, `${fileId}`));
+    res.sendFile(path.join(outputDir, `${fileId}-playlist.m3u8`));
   }
 });
 
-// Serve HLS segments
-app.use('/audio', express.static(HLS_BASE_DIR));
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -147,6 +149,37 @@ app.get('/tracks', (req, res) => {
       res.status(200).json({ tracks: results });
   });
 });
+
+// Endpoint to get similiar tracks from the database
+app.get('/similiar_tracks/:fileId', (req, res) => {
+  const { fileId } = req.params;
+  const filePath = `${fileId}.wav`
+  const sql = `
+    with cte as (
+    select resource_path, tag
+      from tags
+      where resource_path = '${filePath}'
+    ),
+    all_tags as (
+      select resource_path rp, tag t
+        from tags
+    )
+    select distinct path, title, artist, insert_dt, release_dt, update_dt 
+    from cte 
+    left join all_tags on (cte.tag = all_tags.t) 
+    left join resources r on (all_tags.rp = r.path)
+    where path != '${filePath}'`;
+
+  db.query(sql, (err, results) => {
+      if (err) {
+          console.error('Error fetching tracks:', err);
+          return res.status(500).json({ error: 'Failed to fetch tracks.' });
+      }
+
+      res.status(200).json({ tracks: results });
+  });
+});
+
 
 // Fetch tracks for a given user
 app.get('/collections/:userId', (req, res) => {

@@ -36,13 +36,15 @@ def connect_to_database() -> mysql.connector.connection.MySQLConnection:
 
 def test(info):
     if info['status'] == 'finished':
-        title = info['info_dict']['title'].replace(u'\u29f8','').replace('/','')
+        title = info['info_dict']['title'].replace(u'\u29f8','').replace(u'\uff0c','').replace('/','').replace("'",'')
         try:
             artists = info['info_dict']['artists']
             art = ''
             for index, artist in enumerate(artists):
-                if index == 0:
+                if index == 0 and len(artists) > 1:
                     art = f'{art}{artist},'
+                elif index == 0 and len(artists) == 1:
+                    art = f'{art}{artist}'
                 elif index < len(artists)-1:
                     art = f'{art} {artist},'
                 else:
@@ -50,28 +52,38 @@ def test(info):
                         art = f'{art} {artist}'
                     else:
                         art = f'{artist}'
-            artist = art
+            artist = art.replace(u'\u29f8','').replace(u'\uff0c','').replace("'",'')
         except:
             artist='NA'
-        resource_path = f"{info['info_dict']['filename'][6:-4]}wav".replace(' ', '_').replace(u'\u29f8','')
-        if artist == '' or title == '':
-            print('err')
+        resource_path = f"{info['info_dict']['filename'][6:-4]}wav".replace(u'\u29f8','').replace(u'\uff0c','').replace(' ', '_').replace("'",'')
+        
+        # Grab tags
+        tags = info['info_dict']['tags']
+        # Check if artist track exist already
+        conn = connect_to_database()
+        cursor = conn.cursor()
+        cursor.execute(f"SELECT * FROM `test-streaming`.resources WHERE title = '{title}' AND artist = '{artist}'")
+        results = cursor.fetchall()
+        if len(results) == 0:
+            # Upload data
+            cursor.execute(f"INSERT INTO `test-streaming`.resources (artist, title, path, release_dt, insert_dt, update_dt) VALUES ('{artist}', '{title}', '{resource_path}', '{datetime.datetime.now()}', '{datetime.datetime.now()}', '{datetime.datetime.now()}')")
+            conn.commit()          
         else:
-            # Check if artist track exist already
-            conn = connect_to_database()
-            cursor = conn.cursor()
-            cursor.execute(f"SELECT * FROM `test-streaming`.resources WHERE title = '{title}' AND artist = '{artist}'")
-            results = cursor.fetchall()
-            if len(results) == 0:
-                # Upload data
-                cursor.execute(f"INSERT INTO `test-streaming`.resources (artist, title, path, release_dt, insert_dt, update_dt) VALUES ('{artist}', '{title}', '{resource_path}', '{datetime.datetime.now()}', '{datetime.datetime.now()}', '{datetime.datetime.now()}')")
-                conn.commit()          
-            else:
-                print("RESOURCE EXISTS")
-                print(results)
-            cursor.close()
-            conn.close()
-            pass
+            print("RESOURCE EXISTS")
+            print(results)
+        
+        # Add Tags
+        for tag in tags:
+            sql = f"INSERT INTO `test-streaming`.tags (artist, title, resource_path, tag) VALUES ('{artist}', '{title}', '{resource_path}', '{tag}')"
+            try:
+                cursor.execute(sql)
+            except:
+                print('Exists already')
+            conn.commit()
+
+        cursor.close()
+        conn.close()
+        pass
 
         
 
@@ -88,7 +100,7 @@ def rename_files_in_directory(directory_path):
             # Check if it's a file (not a subdirectory)
             if os.path.isfile(file_path):
                 # Replace spaces with underscores in the filename
-                new_filename = filename.replace(' ', '_').replace(u'\u29f8','')
+                new_filename = filename.replace(u'\u29f8','').replace(u'\uff0c','').replace(' ', '_').replace("'",'')
                 
                 # Create the new file path
                 new_file_path = os.path.join(directory_path, new_filename)
@@ -109,7 +121,7 @@ if __name__ == '__main__':
 
     # Get the URL from command-line arguments
     video_url = [sys.argv[1]]
-    # video_url = "https://www.youtube.com/watch?v=U3jQ91rMkrU"
+    # video_url = "https://www.youtube.com/watch?v=2w8KUgIkAu8"
     ydl_opts = {
         'cookiefile': 'www.youtube.com.txt',  # Path to your cookies.txt
         'format': 'wav/bestaudio/best',
