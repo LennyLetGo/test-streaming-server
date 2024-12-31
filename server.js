@@ -9,12 +9,13 @@ const mysql = require('mysql2');
 const app = express();
 const PORT = 5000;
 const LOCAL_IP = '192.168.5.217'
+const PROD_IP = 'ec2-3-128-188-22.us-east-2.compute.amazonaws.com'
 
 // services
 const collectionService = require('./services/collectionServices');
 
 // Allow requests from your frontend's local IP
-const allowedOrigins = ['http://localhost:3000', `${LOCAL_IP}:3000`] //'0.0.0.0']; // Replace with your actual IP and port
+const allowedOrigins = ['http://localhost:3000', `${LOCAL_IP}:3000`, 'ec2-3-133-145-178.us-east-2.compute.amazonaws.com:3000'] //'0.0.0.0']; // Replace with your actual IP and port
 
 app.use(cors({
   origin: function (origin, callback) {
@@ -383,6 +384,6 @@ app.post('/streams/add', (req, res) => {
 });
 
 // Start the server
-app.listen(PORT, LOCAL_IP, () => {
-  console.log(`Server is running at http://${LOCAL_IP}:${PORT}`);
+app.listen(PORT, PROD_IP, () => {
+  console.log(`Server is running at http://${PROD_IP}:${PORT}`);
 });
