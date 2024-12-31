@@ -17,15 +17,7 @@ const collectionService = require('./services/collectionServices');
 // Allow requests from your frontend's local IP
 const allowedOrigins = ['http://localhost:3000', `${LOCAL_IP}:3000`, 'http://ec2-3-133-145-178.us-east-2.compute.amazonaws.com:3000','0.0.0.0']; // Replace with your actual IP and port
 
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  }
-}));
+app.use(cors());
 app.use(bodyParser.json());
 
 // Configure MySQL connection
