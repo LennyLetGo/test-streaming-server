@@ -186,7 +186,7 @@ app.post('/process-url', (req, res) => {
   }
 
   // Spawn the Python process and pass the URL as an argument
-  const pythonProcess = spawn('venv\\Scripts\\python.exe', [path.join(__dirname, 'main.py'), url]);
+  const pythonProcess = spawn('venv/Scripts/python.exe', [path.join(__dirname, 'main.py'), url]);
 
   pythonProcess.stderr.on('data', (data) => {
     console.error(`Python Error: ${data.toString()}`);
