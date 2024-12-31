@@ -28,12 +28,10 @@ def connect_to_database() -> mysql.connector.connection.MySQLConnection:
             cursor.execute("SELECT DATABASE();")
             record = cursor.fetchone()
             print(f"Connected to database: {record[0]}")
+            return connection
 
     except Error as e:
         print(f"Error while connecting to MySQL: {e}")
-    finally:
-        if connection.is_connected():
-            return connection
 
 
 # Check if artist track exist already
