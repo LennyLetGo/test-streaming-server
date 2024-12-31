@@ -10,8 +10,11 @@ const app = express();
 const PORT = 5000;
 const LOCAL_IP = '192.168.5.217'
 
+// services
+const collectionService = require('./services/collectionServices');
+
 // Allow requests from your frontend's local IP
-const allowedOrigins = ['http://localhost:3000', 'http://192.168.5.217:3000']; // Replace with your actual IP and port
+const allowedOrigins = ['http://localhost:3000', `${LOCAL_IP}:3000`] //'0.0.0.0']; // Replace with your actual IP and port
 
 app.use(cors({
   origin: function (origin, callback) {
@@ -49,6 +52,8 @@ if (!fs.existsSync(HLS_BASE_DIR)) {
   fs.mkdirSync(HLS_BASE_DIR, { recursive: true });
 }
 
+// ========================================================================== STREAMING ============================================================================
+
 // Function to convert a file to HLS segments
 function convertToHLS(inputFile, outputDir) {
   console.log(inputFile.replace(".wav", "").replace("audio\\", ""))
@@ -79,13 +84,17 @@ function convertToHLS(inputFile, outputDir) {
       .run();
   });
 }
+// Serve HLS segments
+app.use('/audio', express.static(HLS_BASE_DIR));
 
 // Route to handle audio streaming by file ID
 app.get('/audio/:fileId', async (req, res) => {
+  console.log('audio/fileID HIT')
   const { fileId } = req.params;
   const inputFile = path.join("audio", `${fileId}.wav`);  // Dynamically resolve the MP3 file
   const outputDir = HLS_BASE_DIR
-  const converted = path.join("stream", `${fileId}`);  // Dynamically resolve the MP3 file
+  const converted = path.join("stream", `${fileId}-playlist.m3u8`);  // Dynamically resolve the MP3 file
+  console.log(`converted: ${converted}`)
   if (!fs.existsSync(converted)) {
     try {
       console.log(`Converting ${fileId} to HLS...`);
@@ -98,33 +107,17 @@ app.get('/audio/:fileId', async (req, res) => {
   }
   else {
     // Serve the playlist.m3u8 file
-    res.sendFile(path.join(outputDir, `${fileId}`));
+    res.sendFile(path.join(outputDir, `${fileId}-playlist.m3u8`));
   }
 });
 
-// Serve HLS segments
-app.use('/audio', express.static(HLS_BASE_DIR));
 
 // Root endpoint
 app.get('/', (req, res) => {
   res.send('HLS streaming server is running!');
 });
 
-// Function to get all filenames in a directory
-function getFilenamesInDirectory(directoryPath) {
-    // Use fs.readdirSync to read the directory contents synchronously
-    try {
-      const files = fs.readdirSync(directoryPath);
-      
-      // Filter to get only the filenames (not directories)
-      const filenames = files.filter(file => fs.statSync(path.join(directoryPath, file)).isFile())
-                            .map(file => path.basename(file, path.extname(file)).replaceAll('_', ' ')); // Remove file extension
-      return filenames;
-    } catch (err) {
-      console.error('Error reading directory:', err);
-      return [];
-    }
-  }
+// ===================================================================== TRACKS ====================================================================================
 // Root endpoint
 // Endpoint to get tracks from the database
 app.get('/tracks', (req, res) => {
@@ -148,36 +141,36 @@ app.get('/tracks', (req, res) => {
   });
 });
 
-// Fetch tracks for a given user
-app.get('/collections/:userId', (req, res) => {
-  const { userId } = req.params;
+// Endpoint to get similiar tracks from the database
+app.get('/similiar_tracks/:fileId', (req, res) => {
+  const { fileId } = req.params;
+  const filePath = `${fileId}.wav`
+  const sql = `
+    with cte as (
+    select resource_path, tag
+      from tags
+      where resource_path = '${filePath}'
+    ),
+    all_tags as (
+      select resource_path rp, tag t
+        from tags
+    )
+    select distinct path, title, artist, insert_dt, release_dt, update_dt 
+    from cte 
+    left join all_tags on (cte.tag = all_tags.t) 
+    left join resources r on (all_tags.rp = r.path)
+    where path != '${filePath}'`;
 
-  // Validate the user ID
-  if (!userId) {
-      return res.status(400).json({ message: 'User ID is required.' });
-  }
-
-  // Query to fetch tracks for the user
-  const query = `
-      SELECT title, artist, insert_dt, name
-      FROM collections
-      WHERE user_id = ?
-      ORDER BY name, insert_dt DESC
-  `;
-
-  db.query(query, [userId], (err, results) => {
+  db.query(sql, (err, results) => {
       if (err) {
-          console.error('Error executing query:', err.stack);
-          return res.status(500).json({ message: 'Internal server error.' });
+          console.error('Error fetching tracks:', err);
+          return res.status(500).json({ error: 'Failed to fetch tracks.' });
       }
 
-      // Respond with the tracks
-      res.json({
-          message: 'Tracks fetched successfully.',
-          tracks: results
-      });
+      res.status(200).json({ tracks: results });
   });
 });
+
 
 // New endpoint that spawns the Python process
 app.post('/process-url', (req, res) => {
@@ -202,6 +195,8 @@ app.post('/process-url', (req, res) => {
     }
   });
 });
+
+// =============================================================== LOGIN/CREATE USER ==================================================================================
 
 // Login endpoint
 app.post('/login', (req, res) => {
@@ -255,34 +250,52 @@ app.post('/create-user', (req, res) => {
           console.error('Error executing query:', err.stack);
           return res.status(500).json({ message: 'Internal server error.' });
       }
-
-      // Respond with the newly created user ID
-      res.status(201).json({
-          message: 'User created successfully.',
-          user: {
-              id: results.insertId,
-              username
-          }
-      });
+      // Create Liked Playlist
+      if(collectionService.createCollection(db, 0, username, "Liked", false)) {
+        // Respond with the newly created user ID
+        res.status(201).json({
+            message: 'User created successfully.',
+            user: {
+                id: results.insertId,
+                username
+            }
+        });
+      }
+      else {
+        console.error('Error creating liked collection:', err.stack);
+        return res.status(500).json({ message: 'Internal server error.' });
+      }
   });
 });
 
-// Endpoint to add a song to a collection
-app.post('/collections/add', (req, res) => {
-  const { user_id, title, artist, name } = req.body;
-  // Validate input
-  if (!user_id || !title || !artist || !name) {
-      return res.status(400).json({ error: 'All fields (user_id, title, artist, name) are required.' });
+// =============================================================== COLLECTIONS ==================================================================================
+
+app.post('/collection', (req, res) => {
+  const { collection_id, username, collection_name, isPublic } = req.body;
+  if(collectionService.createCollection(db, collection_id, username, collection_name, isPublic)) {
+    res.status(201).json({
+      message: 'Collection created successfully.',
+      collection: { collection_id, username, collection_name },
+    })
   }
+  else {
+    res.status(500).json({error: "Error creating collection"})
+  }
+})
+
+// Endpoint to add a song to a collection
+// TODO: Look at refactoring this next
+app.post('/collection/insert', (req, res) => {
+  const { collection_id, username, title, artist } = req.body;
 
   const insert_dt = new Date().toISOString().slice(0, 19).replace('T', ' '); // Format for MySQL DATETIME
 
   const sql = `
-      INSERT INTO collections (user_id, title, artist, insert_dt, name)
+      INSERT INTO track_collection (collection_id, username, title, artist, insert_dt)
       VALUES (?, ?, ?, ?, ?)
   `;
 
-  db.query(sql, [user_id, title, artist, insert_dt, name], (err, result) => {
+  db.query(sql, [collection_id, username, title, artist, insert_dt], (err, result) => {
       if (err) {
           console.error('Error inserting song into collection:', err);
           return res.status(500).json({ error: 'Failed to add the song to the collection.' });
@@ -290,7 +303,77 @@ app.post('/collections/add', (req, res) => {
 
       res.status(201).json({
           message: 'Song added to the collection successfully.',
-          song: { user_id, title, artist, name, insert_dt },
+          song: { collection_id, username, title, artist, insert_dt },
+      });
+  });
+});
+
+// Fetch tracks for a given user
+app.get('/collection/:username', (req, res) => {
+  const { username } = req.params;
+
+  // Validate the user ID
+  if (!username) {
+      return res.status(400).json({ message: 'username is required.' });
+  }
+
+  // Query to fetch tracks for the user
+  const query = `
+      select user_collection.collection_id, user_collection.username, collection_name, is_public, resources.title, resources.artist, path, track_collection.insert_dt collection_insert_dt, release_dt
+      from (
+        user_collection left join 
+          track_collection on ( 1=1 AND
+          user_collection.collection_id = track_collection.collection_id AND
+              user_collection.username = track_collection.username)
+      ) left join resources on ( 1=1 AND
+        track_collection.artist = resources.artist AND
+        track_collection.title = resources.title)
+      order by collection_id asc, collection_insert_dt asc;
+  `;
+
+  db.query(query, [username], (err, results) => {
+      if (err) {
+          console.error('Error executing query:', err.stack);
+          return res.status(500).json({ message: 'Internal server error.' });
+      }
+
+      // Respond with the tracks
+      res.json({
+          message: 'Tracks fetched successfully.',
+          tracks: results
+      });
+  });
+});
+
+// ===================================================================== USAGE ======================================================================================
+
+// Endpoint to add a song to a collection
+// TODO Refactor cause collection id is dependent on user_id
+app.post('/streams/add', (req, res) => {
+  console.log(req.body)
+  const { user_id, title, artist, collection_id, length } = req.body;
+  // Validate input
+  if (!user_id || !title || !artist || !length) {
+      console.log('Elements missing')
+      return res.status(400).json({ error: 'All fields (user_id, title, artist, collection_id, length) are required.' });
+  }
+
+  const insert_dt = new Date().toISOString().slice(0, 19).replace('T', ' '); // Format for MySQL DATETIME
+
+  const sql = `
+      INSERT INTO streams (user_id, title, artist, collection_id, length, insert_dt)
+      VALUES (?, ?, ?, ?, ?, ?)
+  `;
+
+  db.query(sql, [user_id, title, artist,  collection_id, length, insert_dt], (err, result) => {
+      if (err) {
+          console.error('Error collecting stream:', err);
+          return res.status(500).json({ error: 'Failed to add the song to the collection.' });
+      }
+
+      res.status(201).json({
+          message: 'Stream captured successfully.',
+          song: { user_id, title, artist, collection_id, length, insert_dt },
       });
   });
 });
