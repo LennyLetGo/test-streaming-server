@@ -153,7 +153,7 @@ def set_minus_audio_files(old_files, new_files):
 
 def transform_track_add_to_database(filepath):
     pid = os.getpid()
-    filepath = filepath.replace('audio\\', '')
+    filepath = filepath.replace('audio/', '')
     artists = []
     artist_found = False
     # Try and parse out the artists if applicable
@@ -167,13 +167,13 @@ def transform_track_add_to_database(filepath):
     artist, title = get_artist_and_trackname(filepath, artists)
     if artist_found:
         artist = artists
-    new_path = f"audio\\{artist}-{title}.wav".replace(' ', '_')
+    new_path = f"audio/{artist}-{title}.wav".replace(' ', '_')
     artist = artist.replace('_', ' ')
     title = title.replace('_', ' ')
     # Rename the file
-    os.rename(f"audio\\{filepath}", new_path)
+    os.rename(f"audio/{filepath}", new_path)
     # Match the sql schema
-    new_path = new_path.replace("audio\\","")
+    new_path = new_path.replace("audio/","")
     # Grab tags
     # tags = info['info_dict']['tags']
     tags = get_emotional_tags_for_track(new_path)
@@ -219,7 +219,7 @@ if __name__ == '__main__':
 
     # Add the new track
     ydl_opts = {
-        'cookiefile': 'www.youtube.com.txt',  # Path to your cookies.txt
+        'cookiefile': '/home/ubuntu/test-streaming-server/www.youtube.com.txt',  # Path to your cookies.txt
         'format': 'wav/bestaudio/best',
         #'outtmpl': '%(artist)s-%(title)s.%(ext)s'.replace(' ', '_'),  # Output template for artist - title
         # ℹ️ See help(yt_dlp.postprocessor) for a list of available Postprocessors and their arguments
