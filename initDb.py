@@ -39,38 +39,38 @@ def connect_to_database() -> mysql.connector.connection.MySQLConnection:
 # Check if artist track exist already
 conn = connect_to_database()
 cursor = conn.cursor()
-cursor.execute(f"CREATE TABLE `test-streaming`.resources (
+cursor.execute(f"""CREATE TABLE `test-streaming`.resources (
   `path` VARCHAR(150) NOT NULL,
   `release_dt` DATETIME NULL,
   `insert_dt` DATETIME NULL,
   `update_dt` DATETIME NULL,
   `title` VARCHAR(150) NOT NULL,
   `artist` VARCHAR(150) NOT NULL,
-  PRIMARY KEY (`title`, `artist`))")
+  PRIMARY KEY (`title`, `artist`))""")
 conn.commit() 
-cursor.execute(f"CREATE TABLE `test-streaming`.users (
+cursor.execute(f"""CREATE TABLE `test-streaming`.users (
 	`username` VARCHAR(100) NOT NULL,
 	`password` VARCHAR(100) NOT NULL,
-	PRIMARY KEY (`username`))")
+	PRIMARY KEY (`username`))""")
 conn.commit() 
-cursor.execute(f"CREATE TABLE `test-streaming`.track_collection (
+cursor.execute(f"""CREATE TABLE `test-streaming`.track_collection (
   `collection_id` int NOT NULL,
   `username` varchar(100) NOT NULL,
   `title` varchar(150) NOT NULL,
   `artist` varchar(150) NOT NULL,
   `insert_dt` datetime NOT NULL,
   PRIMARY KEY (`collection_id`,`username`,`title`,`artist`)
-)")
+)""")
 conn.commit() 
-cursor.execute(f"CREATE TABLE `test-streaming`.user_collection (
+cursor.execute(f"""CREATE TABLE `test-streaming`.user_collection (
   `collection_id` int NOT NULL,
   `username` varchar(100) NOT NULL,
   `collection_name` varchar(100) NOT NULL,
   `is_public` tinyint NOT NULL,
   PRIMARY KEY (`collection_id`,`username`)
-)")
+)""")
 conn.commit() 
-cursor.execute(f"CREATE TABLE `test-streaming`.streams (
+cursor.execute(f"""CREATE TABLE `test-streaming`.streams (
   `username` varchar(100) NOT NULL,
   `title` varchar(150) NOT NULL,
   `artist` varchar(150) NOT NULL,
@@ -78,12 +78,12 @@ cursor.execute(f"CREATE TABLE `test-streaming`.streams (
   `length` int NOT NULL,
   `insert_dt` datetime NOT NULL,
   PRIMARY KEY (`username`,`title`,`artist`,`collection_id`,`insert_dt`)
-)")
+)""")
 conn.commit()
-cursor.execute(f"CREATE TABLE `test-streaming`.tags (
+cursor.execute(f"""CREATE TABLE `test-streaming`.tags (
   `artist` VARCHAR(150) NOT NULL,
   `title` VARCHAR(150) NOT NULL,
   `resource_path` VARCHAR(150) NOT NULL,
   `tag` VARCHAR(150) NOT NULL,
-  PRIMARY KEY (`tag`, `resource_path`))")
+  PRIMARY KEY (`tag`, `resource_path`))""")
 conn.commit()
