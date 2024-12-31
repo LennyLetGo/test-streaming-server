@@ -61,8 +61,8 @@ if (!fs.existsSync(HLS_BASE_DIR)) {
 
 // Function to convert a file to HLS segments
 function convertToHLS(inputFile, outputDir) {
-  console.log(inputFile.replace(".wav", "").replace("audio\\", ""))
-  let fileBase = inputFile.replace(".wav", "").replace("audio\\", "")
+  console.log(inputFile.replace(".wav", "").replace("audio/", ""))
+  let fileBase = inputFile.replace(".wav", "").replace("audio/", "")
   console.log(`Attempting to convert file ${fileBase}`)
   return new Promise((resolve, reject) => {
     const outputFile = path.join(outputDir, `${fileBase}-playlist.m3u8`);
