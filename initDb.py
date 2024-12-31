@@ -37,7 +37,7 @@ def connect_to_database() -> mysql.connector.connection.MySQLConnection:
 # Check if artist track exist already
 conn = connect_to_database()
 cursor = conn.cursor()
-cursor.execute(f"""CREATE DATABASE test-streaming""")
+cursor.execute(f"""CREATE DATABASE `test-streaming`""")
 conn.commit() 
 cursor.execute(f"""CREATE TABLE `test-streaming`.resources (
   `path` VARCHAR(150) NOT NULL,
