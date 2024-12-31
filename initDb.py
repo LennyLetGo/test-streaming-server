@@ -10,9 +10,9 @@ def connect_to_database() -> mysql.connector.connection.MySQLConnection:
     try:
         # Define database connection parameters
         connection = mysql.connector.connect(
-            host='localhost',          # Change to your MySQL server address if not local
+            host='test-streaming.ct22uy2kkba5.us-east-2.rds.amazonaws.com',          # Change to your MySQL server address if not local
             user='admin',      # Replace with your MySQL username
-            password='password',  # Replace with your MySQL password
+            password='Ifuckingh8hack3r$',  # Replace with your MySQL password
             database='test-streaming'   # Replace with your database name
         )
 

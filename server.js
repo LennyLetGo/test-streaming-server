@@ -29,10 +29,14 @@ app.use(bodyParser.json());
 
 // Configure MySQL connection
 const db = mysql.createConnection({
-  host: 'localhost',
-  user: 'root',
-  password: 'password', // Replace with your MySQL root password
-  database: 'test-streaming'
+  // host: 'localhost',
+  // user: 'root',
+  // password: 'password', // Replace with your MySQL root password
+  // database: 'test-streaming'
+  host:'test-streaming.ct22uy2kkba5.us-east-2.rds.amazonaws.com',  
+  user:'admin',      
+  password:'Ifuckingh8hack3r$', 
+  database:'test-streaming'   
 });
 
 // Connect to the database
