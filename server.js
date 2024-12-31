@@ -15,7 +15,7 @@ const PROD_IP = 'ec2-3-128-188-22.us-east-2.compute.amazonaws.com'
 const collectionService = require('./services/collectionServices');
 
 // Allow requests from your frontend's local IP
-const allowedOrigins = ['http://localhost:3000', `${LOCAL_IP}:3000`, 'http://ec2-3-133-145-178.us-east-2.compute.amazonaws.com:3000'] //'0.0.0.0']; // Replace with your actual IP and port
+const allowedOrigins = ['http://localhost:3000', `${LOCAL_IP}:3000`, 'http://ec2-3-133-145-178.us-east-2.compute.amazonaws.com:3000','0.0.0.0']; // Replace with your actual IP and port
 
 app.use(cors({
   origin: function (origin, callback) {
