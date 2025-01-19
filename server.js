@@ -217,7 +217,6 @@ app.post('/login', (req, res) => {
           res.json({
               message: 'Login successful',
               user: {
-                  id: results[0].id,
                   username: results[0].username
               }
           });
@@ -249,12 +248,11 @@ app.post('/create-user', (req, res) => {
       }
       // Create Liked Playlist
       if(collectionService.createCollection(db, 0, username, "Liked", false)) {
-        // Respond with the newly created user ID
+        // Respond with the newly created user 
         res.status(201).json({
             message: 'User created successfully.',
             user: {
-                id: results.insertId,
-                username
+                username: username
             }
         });
       }
@@ -348,21 +346,21 @@ app.get('/collection/:username', (req, res) => {
 // TODO Refactor cause collection id is dependent on user_id
 app.post('/streams/add', (req, res) => {
   console.log(req.body)
-  const { user_id, title, artist, collection_id, length } = req.body;
+  const { username, title, artist, collection_id, length } = req.body;
   // Validate input
-  if (!user_id || !title || !artist || !length) {
+  if (!username || !title || !artist || !length) {
       console.log('Elements missing')
       return res.status(400).json({ error: 'All fields (user_id, title, artist, collection_id, length) are required.' });
   }
 
   const insert_dt = new Date().toISOString().slice(0, 19).replace('T', ' '); // Format for MySQL DATETIME
-
+  // slight oopsies. The table is expecting username, not id... users table doesnt have an id field
   const sql = `
-      INSERT INTO streams (user_id, title, artist, collection_id, length, insert_dt)
+      INSERT INTO streams (username, title, artist, collection_id, length, insert_dt)
       VALUES (?, ?, ?, ?, ?, ?)
   `;
 
-  db.query(sql, [user_id, title, artist,  collection_id, length, insert_dt], (err, result) => {
+  db.query(sql, [username, title, artist,  collection_id, length, insert_dt], (err, result) => {
       if (err) {
           console.error('Error collecting stream:', err);
           return res.status(500).json({ error: 'Failed to add the song to the collection.' });
@@ -370,7 +368,7 @@ app.post('/streams/add', (req, res) => {
 
       res.status(201).json({
           message: 'Stream captured successfully.',
-          song: { user_id, title, artist, collection_id, length, insert_dt },
+          song: { username, title, artist, collection_id, length, insert_dt },
       });
   });
 });
